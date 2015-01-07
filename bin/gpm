@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
 set -eu
 
@@ -35,30 +35,31 @@ EOF
 }
 
 is_in_use() {
-  [[ -e "$1/.git/index.lock" || -e "$1/.hg/store/lock"  || -e "$1/.bzr/checkout/lock" ]]
+  [ -e "$1/.git/index.lock" -o -e "$1/.hg/store/lock"  -o -e "$1/.bzr/checkout/lock" ]
 }
 
 # Exit with an error message to stderr. An optional second argument sets the
 # exit status (defaults to `1`).
 abort() {
-	echo "$1" >&2;
-	exit ${2:-1};
+   echo "$1" >&2;
+   exit ${2:-1};
 }
+
 
 # Iterates over Godep file dependencies and sets
 # the specified version on each of them.
 set_dependencies() {
-  local deps=$(sed 's/#.*//;/^\s*$/d' < $1) || echo ""
+  deps=$(sed 's/#.*//;/^\s*$/d' < $1) || echo ""
 
-  while read package version; do
+  echo "$deps" | while read package version; do
     (
       echo ">> Getting package "$package""
       go get -u -d "$package"
     ) &
-  done < <(echo "$deps")
+  done
   wait
 
-  while read package version; do
+  echo "$deps" | while read package version; do
     (
       local pkg_path=$(echo "$package" | awk -F/ '{print $1"/"$2"/"$3}')
       local install_path="${GOPATH%%:*}/src/${pkg_path%%/...}"
@@ -71,7 +72,7 @@ set_dependencies() {
       [ -d .hg  ] && hg update    -q      "$version"
       [ -d .svn ] && svn update   -r      "$version"
     ) &
-  done < <(echo "$deps")
+  done
   wait
   echo ">> All Done"
 }
@@ -84,10 +85,9 @@ case "${1:-"install"}" in
     ;;
   "install")
     deps_file="${2:-"Godeps"}"
-    [[ -r "$deps_file" ]] || abort ">> $deps_file file does not exist."
+    [ -r "$deps_file" ] || abort ">> $deps_file file does not exist."
     (which go > /dev/null) ||
-      abort ">> Go is currently not installed or in your PATH"
-    [ -z "${GOPATH:-}" ] && abort ">> GOPATH is not set"
+        abort ">> Go is currently not installed or in your PATH"
     set_dependencies $deps_file
     ;;
   "help")
